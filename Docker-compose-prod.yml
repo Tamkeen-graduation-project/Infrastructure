@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+  backend:
+    image: org/backend:latest
+    container_name: backend
+    restart: always
+    env_file:
+      - .env
+    networks:
+      - app_net
+
+  frontend:
+    image: org/frontend:latest
+    container_name: frontend
+    restart: always
+    networks:
+      - app_net
+
+  ai:
+    image: org/ai:latest
+    container_name: ai
+    restart: always
+    networks:
+      - app_net
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - app_net
+
+networks:
+  app_net:
+    driver: bridge
