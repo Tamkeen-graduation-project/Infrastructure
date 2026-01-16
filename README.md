@@ -1,2 +1,1 @@
-# Docker-Config
-ملفات Dockerfiles واعدادات Docker Compose
+Infrastructure as code for Tamkeen platform (Docker, Docker Compose, CI/CD)
