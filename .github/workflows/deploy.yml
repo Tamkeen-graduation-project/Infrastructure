@@ -3,7 +3,7 @@ name: Deploy Platform to AWS
 on:
   push:
     tags:
-      - 'v*'
+      - 'release-*'
   workflow_dispatch:
 
 jobs:
