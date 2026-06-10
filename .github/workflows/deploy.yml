@@ -30,11 +30,14 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /home/ubuntu/tamkeen
-            
-            # Make sure .env is created and updated correctly from repository
+
+            # Make sure .env exists
             if [ ! -f .env ]; then
               cp ../.env.example .env 2>/dev/null || echo "No .env created yet"
             fi
+
+            # Ensure EBS directories exist
+            sudo mkdir -p /data/redis /data/logs /data/qdrant /data/letsencrypt
 
             # Pull all latest images
             sudo docker compose pull || sudo docker-compose pull
@@ -42,11 +45,34 @@ jobs:
             # Deploy with zero-downtime
             sudo docker compose up -d --remove-orphans || sudo docker-compose up -d --remove-orphans
 
-            # Health checks
-            sleep 20
+            # Health checks with retries
+            echo "=== Waiting for services to start ==="
+            sleep 30
+
             echo "=== Platform Health Check ==="
             sudo docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
-            
-            curl -sf http://localhost:3000/health > /dev/null && echo "Backend:    ✅" || echo "Backend:    ❌"
-            curl -sf http://localhost:8000/ > /dev/null      && echo "AI Tracker: ✅" || echo "AI Tracker: ❌"
-            curl -sf http://localhost:80 > /dev/null         && echo "Frontend:   ✅" || echo "Frontend:   ❌"
+
+            FAILED=0
+
+            # Backend
+            for i in $(seq 1 6); do
+              curl -sf http://localhost:3000/api/v1/ping > /dev/null 2>&1 && echo "Backend:           ✅" && break
+              [ $i -eq 6 ] && FAILED=1 && echo "Backend:           ❌"
+              sleep 5
+            done
+
+            # Frontend (via nginx)
+            for i in $(seq 1 6); do
+              curl -sf http://localhost:80 > /dev/null 2>&1 && echo "Frontend:          ✅" && break
+              [ $i -eq 6 ] && FAILED=1 && echo "Frontend:          ❌"
+              sleep 5
+            done
+
+            if [ $FAILED -eq 1 ]; then
+              echo ""
+              echo "⚠️  Some services failed health checks. Check logs with: sudo docker compose logs <service>"
+              exit 1
+            fi
+
+            echo ""
+            echo "🎉 All services deployed successfully!"
